@@ -166,6 +166,7 @@ let albums = [], currentAlbum = '', currentImages = [], currentIndex = 0;
 let startX = 0, startY = 0, toastTimer = null, pressTimer = null;
 let showStarredOnly = false, isListView = false, displayMode = 'B';
 let seekVisible = false, seekIgnoreChange = false;
+let clickTimer = null;
 const lockScreen = document.getElementById('lockScreen');
 const albumView = document.getElementById('albumView');
 const imageView = document.getElementById('imageView');
@@ -239,13 +240,35 @@ function renderAlbums() {
   searchBox.style.display = randomBtn.style.display = starFilter.style.display = viewToggle.style.display = 'block';
 }
 searchBox.addEventListener('input', renderAlbums);
+
 lockScreen.addEventListener('pointerdown', function(e) {
-  e.preventDefault(); if (pressTimer) clearTimeout(pressTimer);
-  pressTimer = setTimeout(function() { unlockHint.style.opacity = '1'; setTimeout(renderAlbums, 600); }, 2000);
+  e.preventDefault();
+  if (pressTimer) clearTimeout(pressTimer);
+  pressTimer = setTimeout(function() {
+    unlockHint.style.opacity = '1';
+    setTimeout(renderAlbums, 600);
+  }, 2000);
 });
-lockScreen.addEventListener('pointerup', function() { if (pressTimer) clearTimeout(pressTimer); });
-lockScreen.addEventListener('pointercancel', function() { if (pressTimer) clearTimeout(pressTimer); });
+
+lockScreen.addEventListener('pointerup', function(e) {
+  if (pressTimer) clearTimeout(pressTimer);
+  if (clickTimer) {
+    clearTimeout(clickTimer);
+    clickTimer = null;
+    window.location.href = 'https://linghaoyi0318.github.io/Lhy0318/gallery.html';
+    return;
+  }
+  clickTimer = setTimeout(function() {
+    clickTimer = null;
+  }, 400);
+});
+
+lockScreen.addEventListener('pointercancel', function() {
+  if (pressTimer) clearTimeout(pressTimer);
+});
+
 lockScreen.addEventListener('mousedown', function(e) { e.preventDefault(); });
+
 function showToast(m) {
   var t = document.getElementById('toast'); t.textContent = m; t.style.opacity = '1';
   if (toastTimer) clearTimeout(toastTimer); toastTimer = setTimeout(function() { t.style.opacity = '0'; }, 800);
