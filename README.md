@@ -6,7 +6,7 @@
 
 [https://linghaoyi0318.github.io/linghaoyi0318/gallery.html](https://linghaoyi0318.github.io/linghaoyi0318/gallery.html)
 
-## 
+##   
 
 - 图片来自本地
 - albums.json （预加载josn）
@@ -14,7 +14,7 @@
 
 ## 更新记录
 
-| 版本 | 日期 | 说明 |
+| 日期 | 说明 |
 |------|------|------|
 | 2026-08-12 | 优化加载圈与刷新按钮 |
 | 2026-08-12 | 修复预加载 |
