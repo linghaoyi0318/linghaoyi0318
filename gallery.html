@@ -47,7 +47,8 @@
 
   #imageView { display: none; position: fixed; inset: 0; background: #000; z-index: 10; overflow: hidden; }
   #mediaContainer { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-  #mediaContainer img, #mediaContainer video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; transform: translateY(-35px); }
+  #mediaContainer img, #mediaContainer video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; transform: translateY(-35px); transition: opacity 0.15s ease; }
+  #mediaContainer img.hidden { opacity: 0; }
   #backBtn { position: fixed; top: 12px; left: 12px; z-index: 20; background: rgba(0,0,0,0.5); color: #fff; border: none; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; }
   #counter { position: fixed; top: 12px; right: 12px; z-index: 20; background: rgba(0,0,0,0.5); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 13px; }
 
@@ -299,14 +300,20 @@ function reloadCurrentImage() {
 
 function loadImageWithFeedback(url) {
   loadError.style.display = 'none';
-  loadingSpinner.style.display = 'none';
-  loadingSpinner.textContent = '';
+  mediaImg.classList.add('hidden');
 
   getCachedImage(url).then(function(cachedUrl) {
-    mediaImg.src = cachedUrl;
-    mediaImg.style.display = 'block';
+    if (cachedUrl !== url) {
+      mediaImg.src = cachedUrl;
+      mediaImg.classList.remove('hidden');
+      mediaImg.style.display = 'block';
+      loadingSpinner.style.display = 'none';
+    } else {
+      throw new Error('not cached');
+    }
   }).catch(function() {
     loadingSpinner.style.display = 'block';
+    loadingSpinner.textContent = '0%';
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.responseType = 'blob';
@@ -320,17 +327,18 @@ function loadImageWithFeedback(url) {
       if (xhr.status === 200) {
         var blobUrl = URL.createObjectURL(xhr.response);
         mediaImg.src = blobUrl;
+        mediaImg.classList.remove('hidden');
         mediaImg.style.display = 'block';
         cacheImage(url);
       } else {
         loadError.style.display = 'block';
-        mediaImg.style.display = 'none';
+        mediaImg.classList.remove('hidden');
       }
     };
     xhr.onerror = function() {
       loadingSpinner.style.display = 'none';
       loadError.style.display = 'block';
-      mediaImg.style.display = 'none';
+      mediaImg.classList.remove('hidden');
     };
     xhr.send();
   });
@@ -420,4 +428,3 @@ preloadAlbums();
 </script>
 </body>
 </html>
-
