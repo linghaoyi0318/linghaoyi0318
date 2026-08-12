@@ -13,6 +13,7 @@
   }
   input[type="text"] { -webkit-user-select: text; user-select: text; }
   body { background: #000; color: #e0e0e0; font-family: sans-serif; }
+
   #lockScreen {
     position: fixed; inset: 0; background: #000; z-index: 999;
     display: flex; align-items: center; justify-content: center; flex-direction: column;
@@ -22,11 +23,13 @@
     color: #0f0; font-size: 18px; opacity: 0; transition: opacity 0.3s;
     pointer-events: none; text-align: center; font-weight: bold;
   }
+
   #searchBox {
     display: none; position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
     z-index: 25; padding: 8px 16px; border-radius: 20px; border: none;
     background: rgba(255,255,255,0.1); color: #fff; font-size: 14px; width: 50%; outline: none;
   }
+
   #albumView { padding: 8px; padding-top: 50px; display: none; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
   #albumView.list-view { display: block; padding-top: 50px; }
   #albumView.list-view .album { display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #333; cursor: pointer; }
@@ -41,11 +44,13 @@
   .album .count { font-size: 11px; color: #888; }
   .album .star { position: absolute; top: 4px; right: 4px; font-size: 18px; color: #ffd700; display: none; pointer-events: none; text-shadow: 0 0 4px rgba(0,0,0,0.8); }
   .album.starred .star { display: block; }
+
   #imageView { display: none; position: fixed; inset: 0; background: #000; z-index: 10; overflow: hidden; }
   #mediaContainer { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
   #mediaContainer img, #mediaContainer video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; transform: translateY(-35px); }
   #backBtn { position: fixed; top: 12px; left: 12px; z-index: 20; background: rgba(0,0,0,0.5); color: #fff; border: none; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; }
   #counter { position: fixed; top: 12px; right: 12px; z-index: 20; background: rgba(0,0,0,0.5); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 13px; }
+
   #gearBtn {
     display: flex !important; position: fixed !important;
     bottom: 20px !important; left: 20px !important; z-index: 9999 !important;
@@ -54,18 +59,22 @@
     border-radius: 50%; font-size: 24px; cursor: pointer;
     align-items: center; justify-content: center;
   }
+
   #randomBtn, #starFilter, #viewToggle {
     position: fixed; top: 12px; z-index: 25; background: rgba(255,255,255,0.15); color: #fff;
     border: none; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; display: none;
   }
   #randomBtn { right: 80px; } #starFilter { right: 130px; } #viewToggle { right: 180px; }
+
   .edge-left { position: fixed; left: 0; top: 0; bottom: 0; width: 50px; z-index: 30; }
   .edge-right { position: fixed; right: 0; top: 0; bottom: 0; width: 50px; z-index: 30; }
+
   #toast {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
     background: rgba(0,0,0,0.7); color: #fff; padding: 10px 24px; border-radius: 24px;
     font-size: 14px; z-index: 40; pointer-events: none; opacity: 0; transition: opacity 0.15s;
   }
+
   #settingsPanel {
     display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
     background: #1e1e1e; border: 1px solid #444; border-radius: 12px; padding: 20px;
@@ -78,6 +87,7 @@
   }
   #settingsPanel button.active { background: rgba(255,215,0,0.3); font-weight: bold; }
   #settingsOverlay { display: none; position: fixed; inset: 0; z-index: 49; background: rgba(0,0,0,0.5); }
+
   #seekContainer {
     display: none; position: fixed; bottom: 100px; left: 20px; right: 20px; height: 140px;
     z-index: 35; align-items: center; justify-content: center;
@@ -102,6 +112,19 @@
     background: rgba(0,0,0,0.8); color: #fff; padding: 4px 10px; border-radius: 12px;
     font-size: 12px; transform: translate(-50%, -100%);
   }
+
+  #loadingSpinner {
+    display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.2);
+    border-top-color: #fff; border-radius: 50%; z-index: 45;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+  #loadError {
+    display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #f55; font-size: 14px; z-index: 45; pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -122,6 +145,8 @@
   <div class="edge-left" id="edgeLeft"></div>
   <div class="edge-right" id="edgeRight"></div>
   <div id="toast"></div>
+  <div id="loadingSpinner"></div>
+  <div id="loadError">加载失败</div>
 </div>
 <div id="seekContainer"><input type="range" id="seekBar" min="0" max="100" value="0" step="1"></div>
 <div id="seekBubble"></div>
@@ -130,9 +155,12 @@
   <button onclick="setDisplayMode('B')" id="modeB">B · 自适应屏幕</button>
   <button onclick="setDisplayMode('C')" id="modeC">C · 自适应宽度</button>
   <button onclick="setDisplayMode('D')" id="modeD">D · 默认模式</button>
+  <button onclick="reloadCurrentImage()">🔄 刷新当前图片</button>
 </div>
 <script>
 const RAW = 'https://raw.githubusercontent.com/linghaoyi0318/linghaoyi0318/main';
+const CACHE_NAME = 'gallery-cache-v1';
+const PRELOAD_RANGE = 3;
 let albums = [], currentAlbum = '', currentImages = [], currentIndex = 0;
 let startX = 0, startY = 0, toastTimer = null, pressTimer = null;
 let showStarredOnly = false, isListView = false, displayMode = 'B';
@@ -153,6 +181,8 @@ const starFilter = document.getElementById('starFilter');
 const viewToggle = document.getElementById('viewToggle');
 const gearBtn = document.getElementById('gearBtn');
 const unlockHint = document.getElementById('unlockHint');
+const loadingSpinner = document.getElementById('loadingSpinner');
+const loadError = document.getElementById('loadError');
 
 function getStarred() { try { return JSON.parse(localStorage.getItem('gallery_starred') || '{}'); } catch (_) { return {}; } }
 function setStarred(o) { localStorage.setItem('gallery_starred', JSON.stringify(o)); }
@@ -168,7 +198,9 @@ function applyDisplayMode() {
     case 'D': img.style.position = 'absolute'; img.style.inset = '0'; img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'contain'; img.style.imageRendering = 'auto'; break;
   }
 }
-function updateSettingsButtons() { ['B','C','D'].forEach(function(m) { var b = document.getElementById('mode'+m); if(b) b.className = (displayMode===m)?'active':''; }); }
+function updateSettingsButtons() {
+  ['B','C','D'].forEach(function(m) { var b = document.getElementById('mode'+m); if(b) b.className = (displayMode===m)?'active':''; });
+}
 function openSettings() { updateSettingsButtons(); settingsPanel.style.display='block'; settingsOverlay.style.display='block'; }
 function closeSettings() { settingsPanel.style.display='none'; settingsOverlay.style.display='none'; }
 function toggleStar(path, e) { e.stopPropagation(); var s = getStarred(); s[path] = !s[path]; setStarred(s); renderAlbums(); }
@@ -224,6 +256,74 @@ function loadProgress(p) {
 function saveProgress() {
   try { var d = JSON.parse(localStorage.getItem('gallery_progress') || '{}'); d[currentAlbum] = currentIndex; localStorage.setItem('gallery_progress', JSON.stringify(d)); } catch (_) {}
 }
+
+// ====== 缓存 + 预加载核心逻辑 ======
+async function getCachedImage(url) {
+  try {
+    var cache = await caches.open(CACHE_NAME);
+    var cached = await cache.match(url);
+    if (cached) return URL.createObjectURL(await cached.blob());
+  } catch (_) {}
+  return url;
+}
+
+async function cacheImage(url) {
+  try {
+    var cache = await caches.open(CACHE_NAME);
+    var cached = await cache.match(url);
+    if (cached) return;
+    var res = await fetch(url);
+    if (res.ok) await cache.put(url, res.clone());
+  } catch (_) {}
+}
+
+async function precacheNearby() {
+  var start = Math.max(0, currentIndex - PRELOAD_RANGE);
+  var end = Math.min(currentImages.length - 1, currentIndex + PRELOAD_RANGE);
+  for (var i = start; i <= end; i++) {
+    if (i === currentIndex) continue;
+    var url = RAW + '/' + encodeURIComponent(currentAlbum) + '/' + encodeURIComponent(currentImages[i]);
+    cacheImage(url);
+  }
+}
+
+function reloadCurrentImage() {
+  closeSettings();
+  var url = RAW + '/' + encodeURIComponent(currentAlbum) + '/' + encodeURIComponent(currentImages[currentIndex]);
+  caches.open(CACHE_NAME).then(function(cache) {
+    cache.delete(url).then(function() {
+      loadImageWithFeedback(url);
+    });
+  });
+}
+
+function loadImageWithFeedback(url) {
+  mediaImg.style.display = 'none';
+  loadError.style.display = 'none';
+  loadingSpinner.style.display = 'block';
+
+  getCachedImage(url).then(function(cachedUrl) {
+    loadingSpinner.style.display = 'none';
+    mediaImg.src = cachedUrl;
+    mediaImg.style.display = 'block';
+  }).catch(function() {
+    var img = new Image();
+    img.onload = function() {
+      loadingSpinner.style.display = 'none';
+      mediaImg.src = url;
+      mediaImg.style.display = 'block';
+      cacheImage(url);
+    };
+    img.onerror = function() {
+      loadingSpinner.style.display = 'none';
+      loadError.style.display = 'block';
+      mediaImg.style.display = 'none';
+    };
+    img.src = url;
+  });
+}
+// ============================
+
 function openAlbum(path) {
   var a = albums.find(function(x) { return x.path === path; });
   if (!a) return;
@@ -234,14 +334,16 @@ function openAlbum(path) {
   albumView.style.display = 'none'; imageView.style.display = 'block';
   searchBox.style.display = randomBtn.style.display = starFilter.style.display = viewToggle.style.display = 'none';
 }
-function showImage() {
+
+async function showImage() {
   if (currentImages.length === 0) return;
-  var f = currentImages[currentIndex], url = RAW + '/' + encodeURIComponent(currentAlbum) + '/' + encodeURIComponent(f);
-  var img = mediaImg, video = mediaVideo;
-  video.style.display = 'none'; video.pause(); video.src = '';
-  video.style.pointerEvents = 'none'; video.controls = false;
-  img.style.display = 'block'; img.src = url;
+  var f = currentImages[currentIndex];
+  var url = RAW + '/' + encodeURIComponent(currentAlbum) + '/' + encodeURIComponent(f);
+  mediaVideo.style.display = 'none'; mediaVideo.pause(); mediaVideo.src = '';
+  mediaVideo.style.pointerEvents = 'none'; mediaVideo.controls = false;
+  loadImageWithFeedback(url);
   applyDisplayMode();
+  precacheNearby();
   if (seekVisible) {
     seekIgnoreChange = true;
     seekBar.max = currentImages.length - 1; seekBar.value = currentIndex;
@@ -250,6 +352,7 @@ function showImage() {
   document.getElementById('counter').textContent = (currentIndex + 1) + ' / ' + currentImages.length;
   saveProgress();
 }
+
 function goNext() { if (currentIndex < currentImages.length - 1) { currentIndex++; showImage(); } else showToast('已经是最后一张'); }
 function goPrev() { if (currentIndex > 0) { currentIndex--; showImage(); } else showToast('已经是第一张'); }
 function closeViewer() {
@@ -304,6 +407,3 @@ preloadAlbums();
 </script>
 </body>
 </html>
-
-
-
