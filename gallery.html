@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🚀 火箭飞行 · 着陆停止</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #0a0c1a;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            touch-action: none;
+        }
+
+        #rocketCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background: #b0d0ff;
+            touch-action: none;
+        }
+
+        .control-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 24px;
+            padding: 12px 20px;
+            background: rgba(10, 14, 30, 0.35);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+            flex-wrap: wrap;
+            margin: 0 10px;
+            border-radius: 60px;
+            width: auto;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            pointer-events: none;
+        }
+
+        .control-panel button {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #f0f8ff;
+            padding: 14px 28px;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+            backdrop-filter: blur(4px);
+            transition: all 0.15s ease;
+            cursor: pointer;
+            min-width: 100px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            flex: 1 0 auto;
+            touch-action: manipulation;
+        }
+
+        .control-panel button:active {
+            transform: scale(0.92);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-thrust {
+            background: rgba(255, 180, 50, 0.25);
+            border-color: rgba(255, 200, 100, 0.4);
+            color: #fff7e0;
+            flex: 2 0 auto;
+        }
+
+        .btn-thrust:active {
+            background: rgba(255, 200, 80, 0.45);
+        }
+
+        .btn-left {
+            background: rgba(60, 160, 255, 0.2);
+            border-color: rgba(100, 180, 255, 0.3);
+        }
+
+        .btn-right {
+            background: rgba(60, 160, 255, 0.2);
+            border-color: rgba(100, 180, 255, 0.3);
+        }
+
+        .btn-left:active, .btn-right:active {
+            background: rgba(80, 180, 255, 0.35);
+        }
+
+        @media (max-width: 600px) {
+            .control-panel {
+                gap: 12px;
+                padding: 10px 14px;
+                border-radius: 40px;
+                bottom: 14px;
+                max-width: 95vw;
+            }
+            .control-panel button {
+                padding: 12px 16px;
+                font-size: 1rem;
+                min-width: 60px;
+                flex: 1 1 auto;
+            }
+            .btn-thrust {
+                flex: 2 1 auto;
+            }
+        }
+
+        .info-overlay {
+            position: fixed;
+            top: 20px;
+            left: 24px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.85rem;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            padding: 6px 18px;
+            border-radius: 40px;
+            border: 1px solid rgba(255,255,255,0.08);
+            z-index: 50;
+            pointer-events: none;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="rocketCanvas"></canvas>
+
+    <div class="control-panel">
+        <button class="btn-left" id="leftBtn">◀ 左</button>
+        <button class="btn-thrust" id="thrustBtn">🔥 推力</button>
+        <button class="btn-right" id="rightBtn">右 ▶</button>
+    </div>
+
+    <div class="info-overlay" id="statusInfo">🚀 准备起飞</div>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('rocketCanvas');
+            const ctx = canvas.getContext('2d');
+
+            let W, H;
+            function resizeCanvas() {
+                W = window.innerWidth;
+                H = window.innerHeight;
+                canvas.width = W;
+                canvas.height = H;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // 场景常量
+            const GROUND_RATIO = 0.10;
+            const GROUND_COLOR = '#7a8a9a';
+            const SKY_TOP = '#d6ecff';
+            const SKY_BOTTOM = '#8ab8ff';
+
+            // 火箭参数（固定在屏幕中心）
+            const ROCKET_W = 22;
+            const ROCKET_H = 44;
+            const TAIL_H = 16;
+
+            // 火箭物理状态
+            let rocket = {
+                worldX: 0,
+                worldY: 0,      // 世界坐标，地面在 y=0，火箭初始在 y=0 上方
+                vx: 0,
+                vy: 0,
+                angle: 0,
+                thrust: 0,
+                yawInput: 0,
+                isLanded: false, // 是否已着陆
+            };
+
+            // 相机偏移
+            let cameraX = 0;
+            let cameraY = 0;
+
+            // 物理常量
+            const GRAVITY = 0.12;
+            const MAX_THRUST = 0.45;
+            const THRUST_RATE = 0.025;
+            const THRUST_DECAY = 0.015;
+            const DRAG = 0.992;
+            const ANGULAR_DRAG = 0.92;
+            const YAW_SPEED = 0.025;
+            const MAX_ANGLE = 0.45;
+            const VELOCITY_LIMIT = 6.5;
+            const GROUND_Y = 0; // 地面高度（世界坐标）
+
+            // 世界边界
+            const WORLD_LIMIT = 3000;
+
+            // 初始化火箭位置（在地面上方一点）
+            function resetRocket() {
+                rocket.worldX = 0;
+                rocket.worldY = -50; // 初始在地面上方 50 单位
+                rocket.vx = 0;
+                rocket.vy = 0;
+                rocket.angle = 0;
+                rocket.thrust = 0;
+                rocket.isLanded = false;
+                cameraX = 0;
+                cameraY = 0;
+            }
+
+            resetRocket();
+
+            // 按键状态
+            const keys = { left: false, right: false, thrust: false };
+
+            // 更新物理
+            function updatePhysics() {
+                // 如果已着陆，不进行物理更新
+                if (rocket.isLanded) {
+                    // 但推力按钮可以重置状态（重新起飞）
+                    if (keys.thrust && rocket.thrust > 0.1) {
+                        // 如果推力足够大，可以重新起飞
+                        rocket.isLanded = false;
+                        rocket.vy = -0.5; // 向上弹起
+                    }
+                    return;
+                }
+
+                // 推力
+                if (keys.thrust) {
+                    rocket.thrust = Math.min(rocket.thrust + THRUST_RATE, 1.0);
+                } else {
+                    rocket.thrust = Math.max(rocket.thrust - THRUST_DECAY, 0);
+                }
+
+                // 偏航
+                let yaw = 0;
+                if (keys.left) yaw -= 1;
+                if (keys.right) yaw += 1;
+                rocket.yawInput = yaw;
+
+                if (rocket.yawInput !== 0) {
+                    rocket.angle += rocket.yawInput * YAW_SPEED;
+                    rocket.angle = Math.min(Math.max(rocket.angle, -MAX_ANGLE), MAX_ANGLE);
+                } else {
+                    rocket.angle *= 0.97;
+                    if (Math.abs(rocket.angle) < 0.002) rocket.angle = 0;
+                }
+
+                // 加速度
+                const thrustAngle = rocket.angle;
+                const thrustAccelX = Math.sin(thrustAngle) * rocket.thrust * MAX_THRUST;
+                const thrustAccelY = -Math.cos(thrustAngle) * rocket.thrust * MAX_THRUST;
+
+                rocket.vx += thrustAccelX;
+                rocket.vy += thrustAccelY + GRAVITY;
+
+                rocket.vx *= DRAG;
+                rocket.vy *= DRAG;
+
+                // 限速
+                const speed = Math.sqrt(rocket.vx * rocket.vx + rocket.vy * rocket.vy);
+                if (speed > VELOCITY_LIMIT) {
+                    rocket.vx = (rocket.vx / speed) * VELOCITY_LIMIT;
+                    rocket.vy = (rocket.vy / speed) * VELOCITY_LIMIT;
+                }
+
+                // 更新位置
+                rocket.worldX += rocket.vx;
+                rocket.worldY += rocket.vy;
+
+                // ★★★ 地面碰撞检测 ★★★
+                // 如果火箭到达或低于地面，停止下落
+                if (rocket.worldY >= GROUND_Y) {
+                    rocket.worldY = GROUND_Y;
+                    rocket.vy = 0;
+                    rocket.vx = 0; // 着陆时水平速度也归零（可选）
+                    rocket.isLanded = true;
+                    rocket.angle = 0; // 着陆时摆正
+                }
+
+                // 更新相机
+                cameraX = rocket.worldX - W / 2;
+                cameraY = rocket.worldY - H / 2;
+
+                // 边界重置（如果飞太远）
+                if (Math.abs(rocket.worldX) > WORLD_LIMIT) {
+                    resetRocket();
+                }
+
+                // 更新状态文字
+                const speedKmh = speed * 8;
+                const thrustPercent = Math.round(rocket.thrust * 100);
+                const height = Math.max(0, -rocket.worldY).toFixed(0);
+                const status = rocket.isLanded ? '🛬 已着陆' : '🚀 飞行中';
+                document.getElementById('statusInfo').textContent = 
+                    `${status} · 推力 ${thrustPercent}% · 速度 ${speedKmh.toFixed(0)} km/h · 高度 ${height}m`;
+            }
+
+            // 绘制场景
+            function drawScene() {
+                ctx.clearRect(0, 0, W, H);
+
+                // 1. 天空
+                const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+                skyGrad.addColorStop(0, SKY_TOP);
+                skyGrad.addColorStop(1, SKY_BOTTOM);
+                ctx.fillStyle = skyGrad;
+                ctx.fillRect(0, 0, W, H);
+
+                // 2. 地面（世界坐标 y=0）
+                const groundScreenY = GROUND_Y - cameraY;
+
+                // 只绘制在屏幕可见范围内的地面
+                if (groundScreenY < H) {
+                    ctx.fillStyle = GROUND_COLOR;
+                    ctx.fillRect(0, Math.max(0, groundScreenY), W, H - groundScreenY + 10);
+
+                    // 地面装饰线
+                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                    ctx.lineWidth = 1;
+                    const startX = -cameraX % 80;
+                    for (let i = startX - 80; i < W + 80; i += 40) {
+                        const lineY = groundScreenY + 10;
+                        if (lineY > 0 && lineY < H) {
+                            ctx.beginPath();
+                            ctx.moveTo(i, lineY);
+                            ctx.lineTo(i + 20, lineY + 20);
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                // 3. 云朵
+                ctx.fillStyle = 'rgba(255,255,255,0.08)';
+                for (let i = 0; i < 30; i++) {
+                    const seed = i * 137.508;
+                    const wx = (seed % 4000) - 2000;
+                    const wy = ((i * 97.31) % 2000) - 1000;
+                    const sx = wx - cameraX;
+                    const sy = wy - cameraY;
+                    if (sx > -100 && sx < W + 100 && sy > -100 && sy < H + 100) {
+                        ctx.beginPath();
+                        const size = 40 + (i % 3) * 20;
+                        ctx.arc(sx, sy, size, 0, Math.PI * 2);
+                        ctx.arc(sx + size * 0.7, sy - size * 0.2, size * 0.7, 0, Math.PI * 2);
+                        ctx.arc(sx - size * 0.5, sy + size * 0.1, size * 0.6, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                // 4. 火箭（固定在屏幕中心）
+                const screenX = W / 2;
+                const screenY = H / 2;
+
+                ctx.save();
+                ctx.translate(screenX, screenY);
+                ctx.rotate(rocket.angle);
+
+                const w = ROCKET_W;
+                const h = ROCKET_H;
+
+                // 火箭主体
+                const bodyGrad = ctx.createLinearGradient(-w/2, -h/2, w/2, h/2);
+                bodyGrad.addColorStop(0, '#e8f0ff');
+                bodyGrad.addColorStop(0.5, '#b0c8e8');
+                bodyGrad.addColorStop(1, '#7a9ac0');
+                ctx.fillStyle = bodyGrad;
+                ctx.shadowColor = 'rgba(255,255,255,0.3)';
+                ctx.shadowBlur = 18;
+
+                const r = 6;
+                ctx.beginPath();
+                ctx.moveTo(-w/2, -h/2 + r);
+                ctx.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2);
+                ctx.lineTo(w/2 - r, -h/2);
+                ctx.quadraticCurveTo(w/2, -h/2, w/2, -h/2 + r);
+                ctx.lineTo(w/2, h/2 - r);
+                ctx.quadraticCurveTo(w/2, h/2, w/2 - r, h/2);
+                ctx.lineTo(-w/2 + r, h/2);
+                ctx.quadraticCurveTo(-w/2, h/2, -w/2, h/2 - r);
+                ctx.closePath();
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // 舷窗
+                ctx.fillStyle = '#2a3a5a';
+                ctx.beginPath();
+                ctx.arc(0, -6, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#7ab0ff';
+                ctx.beginPath();
+                ctx.arc(0, -6, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 机翼
+                ctx.fillStyle = '#8a9eb0';
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                ctx.beginPath();
+                ctx.moveTo(-w/2, 6);
+                ctx.lineTo(-w/2 - 12, 20);
+                ctx.lineTo(-w/2, 18);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(w/2, 6);
+                ctx.lineTo(w/2 + 12, 20);
+                ctx.lineTo(w/2, 18);
+                ctx.closePath();
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // 尾焰（只有飞行中且推力>0时显示）
+                if (!rocket.isLanded && rocket.thrust > 0.05) {
+                    const flameLen = TAIL_H * (0.3 + rocket.thrust * 1.2);
+                    const flameW = w * 0.6 + rocket.thrust * 6;
+                    const grad = ctx.createRadialGradient(0, h/2 + 4, 2, 0, h/2 + flameLen * 0.5, flameLen);
+                    grad.addColorStop(0, 'rgba(255, 220, 80, 0.95)');
+                    grad.addColorStop(0.4, 'rgba(255, 150, 30, 0.8)');
+                    grad.addColorStop(0.7, 'rgba(255, 80, 20, 0.5)');
+                    grad.addColorStop(1, 'rgba(255, 40, 0, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.moveTo(-flameW/2, h/2);
+                    ctx.quadraticCurveTo(-flameW/2 - 4, h/2 + flameLen * 0.6, 0, h/2 + flameLen);
+                    ctx.quadraticCurveTo(flameW/2 + 4, h/2 + flameLen * 0.6, flameW/2, h/2);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    const innerLen = flameLen * 0.4;
+                    ctx.fillStyle = 'rgba(255, 255, 200, 0.6)';
+                    ctx.beginPath();
+                    ctx.moveTo(-flameW/4, h/2 + 2);
+                    ctx.quadraticCurveTo(-flameW/5, h/2 + innerLen * 0.6, 0, h/2 + innerLen);
+                    ctx.quadraticCurveTo(flameW/5, h/2 + innerLen * 0.6, flameW/4, h/2 + 2);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                ctx.restore();
+
+                // 地面上的影子
+                const groundScreenY2 = GROUND_Y - cameraY;
+                if (groundScreenY2 > 0 && groundScreenY2 < H) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.05)';
+                    ctx.beginPath();
+                    ctx.ellipse(screenX, groundScreenY2 + 8, 30, 8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // 地面交界线
+                const groundLineY = GROUND_Y - cameraY;
+                if (groundLineY > 0 && groundLineY < H) {
+                    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, groundLineY);
+                    ctx.lineTo(W, groundLineY);
+                    ctx.stroke();
+                }
+
+                // 如果已着陆，显示着陆标记
+                if (rocket.isLanded) {
+                    ctx.fillStyle = 'rgba(255, 255, 100, 0.15)';
+                    ctx.font = '18px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🛬 已着陆', W/2, 80);
+                }
+            }
+
+            // 动画循环
+            function loop() {
+                updatePhysics();
+                drawScene();
+                requestAnimationFrame(loop);
+            }
+
+            // ---------- 键盘事件 ----------
+            document.addEventListener('keydown', (e) => {
+                const key = e.key;
+                if (key === 'ArrowUp' || key === 'w' || key === 'W') {
+                    keys.thrust = true;
+                    e.preventDefault();
+                }
+                if (key === 'ArrowLeft' || key === 'a' || key === 'A') {
+                    keys.left = true;
+                    e.preventDefault();
+                }
+                if (key === 'ArrowRight' || key === 'd' || key === 'D') {
+                    keys.right = true;
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                const key = e.key;
+                if (key === 'ArrowUp' || key === 'w' || key === 'W') {
+                    keys.thrust = false;
+                    e.preventDefault();
+                }
+                if (key === 'ArrowLeft' || key === 'a' || key === 'A') {
+                    keys.left = false;
+                    e.preventDefault();
+                }
+                if (key === 'ArrowRight' || key === 'd' || key === 'D') {
+                    keys.right = false;
+                    e.preventDefault();
+                }
+            });
+
+            // ---------- 按钮事件 ----------
+            const thrustBtn = document.getElementById('thrustBtn');
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+
+            function setThrust(state) {
+                keys.thrust = state;
+                thrustBtn.style.background = state ? 'rgba(255, 200, 80, 0.5)' : 'rgba(255, 180, 50, 0.25)';
+            }
+
+            thrustBtn.addEventListener('mousedown', (e) => { e.preventDefault(); setThrust(true); });
+            thrustBtn.addEventListener('mouseup', () => { setThrust(false); });
+            thrustBtn.addEventListener('mouseleave', () => { setThrust(false); });
+            thrustBtn.addEventListener('touchstart', (e) => { e.preventDefault(); setThrust(true); });
+            thrustBtn.addEventListener('touchend', (e) => { e.preventDefault(); setThrust(false); });
+            thrustBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); setThrust(false); });
+
+            function setLeft(state) {
+                keys.left = state;
+                leftBtn.style.background = state ? 'rgba(80, 180, 255, 0.5)' : 'rgba(60, 160, 255, 0.2)';
+            }
+            leftBtn.addEventListener('mousedown', (e) => { e.preventDefault(); setLeft(true); });
+            leftBtn.addEventListener('mouseup', () => { setLeft(false); });
+            leftBtn.addEventListener('mouseleave', () => { setLeft(false); });
+            leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); setLeft(true); });
+            leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); setLeft(false); });
+            leftBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); setLeft(false); });
+
+            function setRight(state) {
+                keys.right = state;
+                rightBtn.style.background = state ? 'rgba(80, 180, 255, 0.5)' : 'rgba(60, 160, 255, 0.2)';
+            }
+            rightBtn.addEventListener('mousedown', (e) => { e.preventDefault(); setRight(true); });
+            rightBtn.addEventListener('mouseup', () => { setRight(false); });
+            rightBtn.addEventListener('mouseleave', () => { setRight(false); });
+            rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); setRight(true); });
+            rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); setRight(false); });
+            rightBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); setRight(false); });
+
+            window.addEventListener('touchmove', (e) => {
+                if (e.target === canvas || e.target.closest('.control-panel')) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+            });
+
+            loop();
+            resetRocket();
+            console.log('🚀 火箭会在接触地面时停止下落，按推力可重新起飞');
+        })();
+    </script>
+</body>
+</html>
