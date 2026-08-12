@@ -298,34 +298,31 @@ function reloadCurrentImage() {
 }
 
 function loadImageWithFeedback(url) {
-  mediaImg.src = '';
-  mediaImg.style.display = 'none';
   loadError.style.display = 'none';
-  loadingSpinner.style.display = 'block';
+  loadingSpinner.style.display = 'none';
+  loadingSpinner.textContent = '';
 
   getCachedImage(url).then(function(cachedUrl) {
-    loadingSpinner.style.display = 'none';
     mediaImg.src = cachedUrl;
     mediaImg.style.display = 'block';
   }).catch(function() {
+    loadingSpinner.style.display = 'block';
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.responseType = 'blob';
     xhr.onprogress = function(e) {
       if (e.lengthComputable) {
-        var pct = Math.round((e.loaded / e.total) * 100);
-        loadingSpinner.textContent = pct + '%';
+        loadingSpinner.textContent = Math.round((e.loaded / e.total) * 100) + '%';
       }
     };
     xhr.onload = function() {
+      loadingSpinner.style.display = 'none';
       if (xhr.status === 200) {
-        loadingSpinner.style.display = 'none';
         var blobUrl = URL.createObjectURL(xhr.response);
         mediaImg.src = blobUrl;
         mediaImg.style.display = 'block';
         cacheImage(url);
       } else {
-        loadingSpinner.style.display = 'none';
         loadError.style.display = 'block';
         mediaImg.style.display = 'none';
       }
