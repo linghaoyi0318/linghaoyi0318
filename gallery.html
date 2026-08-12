@@ -159,6 +159,10 @@
 </div>
 
 <script>
+// ========== 配置：改成你的仓库路径 ==========
+const REPO = 'linghaoyi0318/linghaoyi0318';
+const RAW_BASE = 'https://raw.githubusercontent.com/' + REPO + '/main';
+
 let albums = [], currentAlbum = '', currentImages = [], currentIndex = 0;
 let startX = 0, startY = 0, toastTimer = null, pressTimer = null, preloadedAlbums = null;
 let showStarredOnly = false, isListView = false, displayMode = 'B';
@@ -234,8 +238,42 @@ function randomAlbum() {
   openAlbum(pool[Math.floor(Math.random() * pool.length)].path);
 }
 
+// 从 GitHub API 获取目录列表作为相册
 async function preloadAlbums() {
-  try { var r = await fetch('/api/albums'); preloadedAlbums = await r.json(); } catch (_) { preloadedAlbums = []; }
+  try {
+    var api = 'https://api.github.com/repos/' + REPO + '/contents';
+    var res = await fetch(api);
+    var items = await res.json();
+    preloadedAlbums = [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type === 'dir') {
+        // 获取文件夹内第一个文件作为封面
+        var subRes = await fetch(items[i].url);
+        var subItems = await subRes.json();
+        var cover = '';
+        var count = 0;
+        if (Array.isArray(subItems)) {
+          for (var j = 0; j < subItems.length; j++) {
+            var ext = (subItems[j].name.split('.').pop() || '').toLowerCase();
+            if (['jpg','jpeg','png','webp','gif','bmp'].indexOf(ext) !== -1) {
+              if (!cover) cover = subItems[j].name;
+              count++;
+            }
+          }
+        }
+        if (count > 0) {
+          preloadedAlbums.push({
+            name: items[i].name,
+            cover: cover,
+            count: count,
+            path: items[i].name
+          });
+        }
+      }
+    }
+  } catch (_) {
+    preloadedAlbums = [];
+  }
 }
 
 function renderAlbums() {
@@ -246,8 +284,9 @@ function renderAlbums() {
   if (kw) filtered = filtered.filter(function(a) { return a.name.toLowerCase().indexOf(kw) !== -1; });
 
   albumView.innerHTML = filtered.map(function(a) {
+    var coverUrl = RAW_BASE + '/' + encodeURIComponent(a.path) + '/' + encodeURIComponent(a.cover);
     return '<div class="album' + (starred[a.path] ? ' starred' : '') + '" onclick="openAlbum(\'' + a.path + '\')">' +
-      '<img src="/image?album=' + encodeURIComponent(a.path) + '&name=' + encodeURIComponent(a.cover) + '" loading="lazy">' +
+      '<img src="' + coverUrl + '" loading="lazy">' +
       '<div class="star">⭐</div><div class="info"><div class="name">' + a.name + '</div><div class="count">' + a.count + ' 张</div></div></div>';
   }).join('');
 
@@ -275,7 +314,9 @@ lockScreen.addEventListener('mousedown', function(e) { e.preventDefault(); });
 
 function getExt(n) { return (n.split('.').pop() || '').toLowerCase(); }
 function isVideoExt(n) { return ['mp4','webm','mov','avi','mkv','ts'].indexOf(getExt(n)) !== -1; }
-function getImageUrl(a, n) { return '/image?album=' + encodeURIComponent(a) + '&name=' + encodeURIComponent(n); }
+function getImageUrl(a, n) {
+  return RAW_BASE + '/' + encodeURIComponent(a) + '/' + encodeURIComponent(n);
+}
 
 function showToast(m) {
   var t = document.getElementById('toast'); t.textContent = m; t.style.opacity = '1';
@@ -283,21 +324,40 @@ function showToast(m) {
 }
 
 async function loadProgress(p) {
-  try { var r = await fetch('/api/progress'); var d = await r.json(); if (d[p] !== undefined) return d[p]; } catch (_) {}
+  // 进度存 localStorage，不加服务端
+  try {
+    var d = JSON.parse(localStorage.getItem('gallery_progress') || '{}');
+    if (d[p] !== undefined) return d[p];
+  } catch (_) {}
   return 0;
 }
 function saveProgress() {
-  fetch('/api/progress').then(function(r) { return r.json(); }).then(function(d) {
+  try {
+    var d = JSON.parse(localStorage.getItem('gallery_progress') || '{}');
     d[currentAlbum] = currentIndex;
-    fetch('/api/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
-  }).catch(function() {});
+    localStorage.setItem('gallery_progress', JSON.stringify(d));
+  } catch (_) {}
 }
 
 async function openAlbum(path) {
-  var r = await fetch('/api/images?album=' + encodeURIComponent(path));
-  var d = await r.json(); currentAlbum = d.album; currentImages = d.images;
-  currentIndex = await loadProgress(path); displayMode = getDisplayMode();
-  showImage(); history.pushState({ view: 'image' }, '', '#image');
+  // 从 GitHub API 获取文件夹内所有图片
+  var api = 'https://api.github.com/repos/' + REPO + '/contents/' + encodeURIComponent(path);
+  var res = await fetch(api);
+  var items = await res.json();
+  currentAlbum = path;
+  currentImages = [];
+  if (Array.isArray(items)) {
+    for (var i = 0; i < items.length; i++) {
+      var ext = (items[i].name.split('.').pop() || '').toLowerCase();
+      if (['jpg','jpeg','png','webp','gif','bmp'].indexOf(ext) !== -1) {
+        currentImages.push(items[i].name);
+      }
+    }
+  }
+  currentIndex = await loadProgress(path);
+  displayMode = getDisplayMode();
+  showImage();
+  history.pushState({ view: 'image' }, '', '#image');
   albumView.style.display = 'none'; imageView.style.display = 'block';
   searchBox.style.display = randomBtn.style.display = starFilter.style.display = viewToggle.style.display = 'none';
 }
